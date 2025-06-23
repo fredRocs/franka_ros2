@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  ros_humble_fr3:
+    image: ai-companion/user_layer/ros-humble-fr3:latest
+    runtime: nvidia
+    tty: true
+    cap_add:
+      - SYS_NICE
+      - NET_ADMIN 
+    ulimits:
+      rtprio: 
+        soft: 98
+        hard: 98
+      memlock: 
+        soft: 102400
+        hard: 102400
+    network_mode: host
+    device_cgroup_rules: # Realsense
+      - 'c 81:* rmw'
+      - 'c 189:* rmw'
+    volumes:
+      - /dev:/dev # USB Devices
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+      - ..:/workspace/src

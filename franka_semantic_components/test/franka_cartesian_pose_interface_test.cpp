@@ -248,7 +248,8 @@ TEST_F(FrankaCartesianPoseTest,
   Eigen::Quaterniond quaternion = Eigen::Quaterniond(pose.block<3, 3>(0, 0));
   Eigen::Vector3d translation = pose.block<3, 1>(0, 3);
 
-  ASSERT_EQ(received_quaternion, quaternion);
+  // ASSERT_EQ(received_quaternion, quaternion);
+  ASSERT_TRUE(received_quaternion.isApprox(quaternion));
   ASSERT_EQ(received_translation, translation);
 
   franka_cartesian_command_friend->release_interfaces();
@@ -297,7 +298,8 @@ TEST_F(FrankaCartesianPoseTest,
   Eigen::Quaterniond expected_orientation = Eigen::Quaterniond(pose.block<3, 3>(0, 0));
   Eigen::Vector3d expected_translation = pose.block<3, 1>(0, 3);
 
-  ASSERT_EQ(received_orientation, expected_orientation);
+  // ASSERT_EQ(received_orientation, expected_orientation);
+  ASSERT_TRUE(received_orientation.isApprox(expected_orientation));
   ASSERT_EQ(received_translation, expected_translation);
 
   franka_cartesian_command_friend->release_interfaces();

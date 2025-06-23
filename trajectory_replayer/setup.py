@@ -11,7 +11,8 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name, ['launch/record_trajectory.launch.py']),
-    ],
+        ('share/' + package_name, ['launch/play_trajectory.launch.py']),
+        ('share/' + package_name, ['config/fr3_ros_controllers.yaml'])],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='user',
@@ -21,6 +22,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'play_trajectory = trajectory_replayer.replay:main',
         ],
     },
 )

@@ -2,17 +2,17 @@ rosbag2_bagfile_information:
   version: 5
   storage_identifier: sqlite3
   duration:
-    nanoseconds: 17567906639
+    nanoseconds: 16866834797
   starting_time:
-    nanoseconds_since_epoch: 1750679888715520165
-  message_count: 18093
+    nanoseconds_since_epoch: 1750841135200397607
+  message_count: 16864
   topics_with_message_count:
     - topic_metadata:
-        name: /franka3/joint_states
+        name: /franka3/franka_robot_state_broadcaster/measured_joint_states
         type: sensor_msgs/msg/JointState
         serialization_format: cdr
-        offered_qos_profiles: "- history: 3\n  depth: 0\n  reliability: 1\n  durability: 1\n  deadline:\n    sec: 9223372036\n    nsec: 854775807\n  lifespan:\n    sec: 9223372036\n    nsec: 854775807\n  liveliness: 1\n  liveliness_lease_duration:\n    sec: 9223372036\n    nsec: 854775807\n  avoid_ros_namespace_conventions: false\n- history: 3\n  depth: 0\n  reliability: 1\n  durability: 2\n  deadline:\n    sec: 9223372036\n    nsec: 854775807\n  lifespan:\n    sec: 9223372036\n    nsec: 854775807\n  liveliness: 1\n  liveliness_lease_duration:\n    sec: 9223372036\n    nsec: 854775807\n  avoid_ros_namespace_conventions: false"
-      message_count: 18093
+        offered_qos_profiles: "- history: 3\n  depth: 0\n  reliability: 1\n  durability: 1\n  deadline:\n    sec: 9223372036\n    nsec: 854775807\n  lifespan:\n    sec: 9223372036\n    nsec: 854775807\n  liveliness: 1\n  liveliness_lease_duration:\n    sec: 9223372036\n    nsec: 854775807\n  avoid_ros_namespace_conventions: false"
+      message_count: 16864
   compression_format: ""
   compression_mode: ""
   relative_file_paths:
@@ -20,7 +20,7 @@ rosbag2_bagfile_information:
   files:
     - path: recording_0.db3
       starting_time:
-        nanoseconds_since_epoch: 1750679888715520165
+        nanoseconds_since_epoch: 1750841135200397607
       duration:
-        nanoseconds: 17567906639
-      message_count: 18093
+        nanoseconds: 16866834797
+      message_count: 16864

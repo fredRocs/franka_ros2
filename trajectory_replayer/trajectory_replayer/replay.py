@@ -15,10 +15,10 @@ from rosbag2_py import SequentialReader, StorageOptions, ConverterOptions
 from rclpy.serialization import deserialize_message
 
 
-BAG_PATH = 'src/trajectory_replayer/recording/recording'  # relative to workspace root
-JOINT_STATES_TOPIC = '/franka3/joint_states'
+BAG_PATH = 'src/trajectory_replayer/recording/recording' 
+JOINT_STATES_TOPIC = '/franka3/franka_robot_state_broadcaster/measured_joint_states'
 ACTION_TOPIC = '/fr3_arm_controller/follow_joint_trajectory'
-ALPHA_FILTER = 0.01  # Smoothing factor for exponential smoothing
+ALPHA_FILTER = 0.02  # Smoothing factor for exponential smoothing
 
 
 class TrajectoryReplayer(Node):
@@ -27,13 +27,13 @@ class TrajectoryReplayer(Node):
 
         self.joint_names, self.points = self.load_trajectory(BAG_PATH)
 
-        # self.get_logger().info(f"Loaded {len(self.points)} trajectory points")
-        # for idx, pt in enumerate(self.points[:50]):
-        #     self.get_logger().info(
-        #         f"Point {idx}: "
-        #         f"time={pt.time_from_start.sec}s{pt.time_from_start.nanosec}ns, "
-        #         f"pos={pt.positions}, vel={pt.velocities}, acc={pt.accelerations}"
-        #     )
+        self.get_logger().info(f"Loaded {len(self.points)} trajectory points")
+        for idx, pt in enumerate(self.points[:50]):
+            self.get_logger().info(
+                f"Point {idx}: "
+                f"time={pt.time_from_start.sec}s{pt.time_from_start.nanosec}ns, "
+                f"pos={pt.positions}, vel={pt.velocities}, acc={pt.accelerations}"
+            )
 
         self._action_client = ActionClient(self, FollowJointTrajectory, ACTION_TOPIC)
         self.get_logger().info("Waiting for action server...")
@@ -146,7 +146,8 @@ class TrajectoryReplayer(Node):
 
         self.get_logger().info("Sending trajectory...")
         self._send_goal_future = self._action_client.send_goal_async(
-            goal_msg, feedback_callback=self.feedback_callback
+            goal_msg, 
+            # feedback_callback=self.feedback_callback
         )
         self._send_goal_future.add_done_callback(self.goal_response_callback)
 
@@ -173,7 +174,7 @@ def main(args=None):
     node = TrajectoryReplayer()
     rclpy.spin(node)
     node.destroy_node()
-    rclpy.shutdown()
+    # rclpy.shutdown()
 
 
 if __name__ == '__main__':

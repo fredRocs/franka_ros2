@@ -31,7 +31,7 @@ def generate_launch_description():
     # Start ros2 bag recorder for joint states
     record_bag = ExecuteProcess(
         cmd=[
-            'ros2', 'bag', 'record', '-o', bag_path, '/franka3/joint_states'
+            'ros2', 'bag', 'record', '-o', bag_path, '/franka3/franka_robot_state_broadcaster/measured_joint_states'
         ],
         output='screen'
     )

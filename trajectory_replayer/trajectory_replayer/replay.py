@@ -18,7 +18,7 @@ from rclpy.serialization import deserialize_message
 BAG_PATH = 'src/trajectory_replayer/recording/recording' 
 JOINT_STATES_TOPIC = '/franka3/franka_robot_state_broadcaster/measured_joint_states'
 ACTION_TOPIC = '/fr3_arm_controller/follow_joint_trajectory'
-ALPHA_FILTER = 0.02  # Smoothing factor for exponential smoothing
+ALPHA_FILTER = 0.05  # Smoothing factor for exponential smoothing
 
 
 class TrajectoryReplayer(Node):

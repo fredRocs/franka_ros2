@@ -1,18 +1,29 @@
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, ExecuteProcess
+from launch.actions import IncludeLaunchDescription, ExecuteProcess, OpaqueFunction, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import PathJoinSubstitution, LaunchConfiguration
 from launch_ros.substitutions import FindPackageShare
 import os
 
-def generate_launch_description():
-    bag_path = 'src/trajectory_replayer/recording/recording'  # relative to workspace root
+def check_bag_exists(context, *args, **kwargs):
+    """Expects the parents path of bag_name as arg."""
+    #bag_name = LaunchConfiguration('bag_name').perform(context)
+    bag_name = LaunchConfiguration("bag_name").perform(context)
+    bag_file = os.path.join(args[0], bag_name)
+    if os.path.exists(bag_file):
+        print(f"\nBag path '{bag_file}' already exists. Please remove it or choose a different name.\n")
+        exit(1)
+    return []
 
-    # Delete existing bag file/folder if it exists
-    remove_bag = ExecuteProcess(
-        cmd=['rm', '-rf', bag_path],
-        output='screen'
+def generate_launch_description():
+    # check and get bag name
+    bag_path = 'src/trajectory_replayer/recording'  # relative to workspace root
+    bag_name_arg = DeclareLaunchArgument(
+        'bag_name',
+        default_value='recording',
+        description='Path for the output ros2 bag'
     )
+    check_bag = OpaqueFunction(function=check_bag_exists, args=[bag_path])
 
     # Include franka_bringup with hardcoded arguments
     franka_bringup = IncludeLaunchDescription(
@@ -31,13 +42,16 @@ def generate_launch_description():
     # Start ros2 bag recorder for joint states
     record_bag = ExecuteProcess(
         cmd=[
-            'ros2', 'bag', 'record', '-o', bag_path, '/franka3/franka_robot_state_broadcaster/measured_joint_states'
+            'ros2', 'bag', 'record', '-o', 
+            PathJoinSubstitution([bag_path, LaunchConfiguration("bag_name")]),
+            '/franka3/franka_robot_state_broadcaster/measured_joint_states'
         ],
         output='screen'
     )
 
     return LaunchDescription([
-        remove_bag,
+        bag_name_arg,
+        check_bag,
         franka_bringup,
         record_bag
     ])

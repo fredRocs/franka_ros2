@@ -25,6 +25,7 @@ ACTION_TOPIC = '/fr3_arm_controller/follow_joint_trajectory'
 ALPHA_FILTER = 0.05  # Smoothing factor for exponential smoothing
 FRANKA_HOME = [0, -math.pi/4, 0, -3/4 * math.pi, 0, math.pi/2, math.pi/4]
 DT_HOME_CONTROLLER = 0.001
+SPEED_FACTOR_HOME_PATH = 0.25
 
 
 class TrajectoryReplayer(Node):
@@ -58,7 +59,7 @@ class TrajectoryReplayer(Node):
         q_start = points[-1].positions
         t_start = points[-1].time_from_start
         dt = DT_HOME_CONTROLLER
-        motion_generator = MotionGenerator(speed_factor=0.5, q_start=q_start, q_goal=q_goal)
+        motion_generator = MotionGenerator(speed_factor=SPEED_FACTOR_HOME_PATH, q_start=q_start, q_goal=q_goal)
         pos_h, vel_h, acc_h = motion_generator.get_desired_joint_positions(dt=dt)
         pos_h = np.array(pos_h) # tx7
         vel_h = np.array(vel_h)
@@ -71,7 +72,10 @@ class TrajectoryReplayer(Node):
             pt.velocities = list(vel_h[n_t])
             # pt.accelerations = list(acc_h[n_t])
             t_float = t_start.sec + t_start.nanosec*1e-9 + (dt * (n_t+1))
-            pt.time_from_start = Duration(sec=t_start.sec, nanosec=t_start.nanosec + int((dt * (n_t+1))* 1e9))
+            frac, non_frac = math.modf(t_float)
+            t_sec = int(non_frac)
+            t_nanosec = int(frac * 1e9)
+            pt.time_from_start = Duration(sec=t_sec, nanosec=t_nanosec)
             raw_times.append(t_float)
             raw_positions.append(pt.positions)
             raw_vels.append(pt.velocities)

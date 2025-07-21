@@ -44,7 +44,7 @@ class MotionGenerator:
 
             if dq[i] < min_dist:
                 dq_max_reach[i] = np.sqrt(
-                    4.0 / 3.0 * sign_delta_q[i] * dq[i] * (self.ddq_max_start[i] * self.ddq_max_goal[i]) /
+                    4.0 / 3.0 * dq[i] * (self.ddq_max_start[i] * self.ddq_max_goal[i]) /
                     (self.ddq_max_start[i] + self.ddq_max_goal[i])
                 )
 

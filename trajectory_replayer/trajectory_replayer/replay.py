@@ -13,12 +13,17 @@ from sensor_msgs.msg import JointState
 
 from rosbag2_py import SequentialReader, StorageOptions, ConverterOptions
 from rclpy.serialization import deserialize_message
+from .motion_generator import MotionGenerator
+import math
+import numpy as np
 
 
 BAG_PATH = 'src/trajectory_replayer/recording/recording' 
 JOINT_STATES_TOPIC = '/franka3/franka_robot_state_broadcaster/measured_joint_states'
 ACTION_TOPIC = '/fr3_arm_controller/follow_joint_trajectory'
 ALPHA_FILTER = 0.05  # Smoothing factor for exponential smoothing
+FRANKA_HOME = [0, -math.pi/4, 0, -3/4 * math.pi, 0, math.pi/2, math.pi/4]
+DT_HOME_CONTROLLER = 0.01
 
 
 class TrajectoryReplayer(Node):
@@ -28,12 +33,12 @@ class TrajectoryReplayer(Node):
         self.joint_names, self.points = self.load_trajectory(BAG_PATH)
 
         self.get_logger().info(f"Loaded {len(self.points)} trajectory points")
-        for idx, pt in enumerate(self.points[:50]):
-            self.get_logger().info(
-                f"Point {idx}: "
-                f"time={pt.time_from_start.sec}s{pt.time_from_start.nanosec}ns, "
-                f"pos={pt.positions}, vel={pt.velocities}, acc={pt.accelerations}"
-            )
+        # for idx, pt in enumerate(self.points[:50]):
+        #     self.get_logger().info(
+        #         f"Point {idx}: "
+        #         f"time={pt.time_from_start.sec}s{pt.time_from_start.nanosec}ns, "
+        #         f"pos={pt.positions}, vel={pt.velocities}, acc={pt.accelerations}"
+        #     )
 
         self._action_client = ActionClient(self, FollowJointTrajectory, ACTION_TOPIC)
         self.get_logger().info("Waiting for action server...")
@@ -81,6 +86,30 @@ class TrajectoryReplayer(Node):
             pt.velocities = list(msg.velocity)
             pt.time_from_start = elapsed
 
+            raw_times.append(t_float)
+            raw_positions.append(pt.positions)
+            raw_vels.append(pt.velocities)
+            points.append(pt)
+
+        # add a move to home trajectory
+        q_goal = FRANKA_HOME
+        q_start = points[-1].positions
+        t_start = points[-1].time_from_start
+        dt = DT_HOME_CONTROLLER
+        motion_generator = MotionGenerator(speed_factor=0.5, q_start=q_start, q_goal=q_goal)
+        pos_h, vel_h, acc_h = motion_generator.get_desired_joint_positions(dt=dt)
+        pos_h = np.array(pos_h) # tx7
+        vel_h = np.array(vel_h)
+        # acc_h = np.array(acc_h)
+
+        self.get_logger().info(f"Adding {str(pos_h.shape[0])} points to the trajectory to go to Home")
+        for n_t in range(pos_h.shape[0]):
+            pt = JointTrajectoryPoint()
+            pt.positions = list(pos_h[n_t])
+            pt.velocities = list(vel_h[n_t])
+            # pt.accelerations = list(acc_h[n_t])
+            t_float = t_start.sec + t_start.nanosec*1e-9 + (dt * (n_t+1))
+            pt.time_from_start = Duration(sec=t_start.sec, nanosec=t_start.nanosec + int((dt * (n_t+1))* 1e9))
             raw_times.append(t_float)
             raw_positions.append(pt.positions)
             raw_vels.append(pt.velocities)
@@ -144,7 +173,7 @@ class TrajectoryReplayer(Node):
         goal_msg.trajectory.joint_names = joint_names
         goal_msg.trajectory.points = points
 
-        self.get_logger().info("Sending trajectory...")
+        #self.get_logger().info("Sending trajectory...")
         self._send_goal_future = self._action_client.send_goal_async(
             goal_msg, 
             # feedback_callback=self.feedback_callback
@@ -176,6 +205,4 @@ def main(args=None):
     node.destroy_node()
     # rclpy.shutdown()
 
-
-if __name__ == '__main__':
-    main()
+from builtin_interfaces.msg import Duration

@@ -19,18 +19,19 @@ import numpy as np
 
 
 BAG_PATH = 'src/trajectory_replayer/recording/recording' 
+INIT_BAG_PATH = 'src/trajectory_replayer/recording/recording' 
 JOINT_STATES_TOPIC = '/franka3/franka_robot_state_broadcaster/measured_joint_states'
 ACTION_TOPIC = '/fr3_arm_controller/follow_joint_trajectory'
 ALPHA_FILTER = 0.05  # Smoothing factor for exponential smoothing
 FRANKA_HOME = [0, -math.pi/4, 0, -3/4 * math.pi, 0, math.pi/2, math.pi/4]
-DT_HOME_CONTROLLER = 0.01
+DT_HOME_CONTROLLER = 0.001
 
 
 class TrajectoryReplayer(Node):
     def __init__(self):
         super().__init__('replay')
 
-        self.joint_names, self.points = self.load_trajectory(BAG_PATH)
+        self.joint_names, self.points = self.load_trajectory(BAG_PATH, init_bag_path=INIT_BAG_PATH)
 
         self.get_logger().info(f"Loaded {len(self.points)} trajectory points")
         # for idx, pt in enumerate(self.points[:50]):
@@ -47,49 +48,10 @@ class TrajectoryReplayer(Node):
 
         self.send_goal(self.joint_names, self.points)
 
-    def load_trajectory(self, bag_path: str):
+    def load_trajectory(self, bag_path: str, init_bag_path: str = None):
         """Read JointState messages from a ros2 bag and convert to trajectory points."""
-        reader = SequentialReader()
-        reader.open(StorageOptions(uri=bag_path, storage_id='sqlite3'), ConverterOptions('', ''))
-
-        base_stamp = None
-        joint_names = []
-        raw_times, raw_positions, raw_vels = [], [], []
-        points = []
-
-        while reader.has_next():
-            topic, data, _ = reader.read_next()
-            if topic != JOINT_STATES_TOPIC:
-                continue
-
-            msg = deserialize_message(data, JointState)
-
-            if not joint_names:
-                joint_names = list(msg.name)
-
-            stamp = msg.header.stamp
-            if base_stamp is None:
-                base_stamp = stamp
-                elapsed_sec, elapsed_nsec = 0, 0
-            else:
-                elapsed_sec = stamp.sec - base_stamp.sec
-                elapsed_nsec = stamp.nanosec - base_stamp.nanosec
-                if elapsed_nsec < 0:
-                    elapsed_sec -= 1
-                    elapsed_nsec += 1_000_000_000
-
-            elapsed = Duration(sec=elapsed_sec, nanosec=elapsed_nsec)
-            t_float = elapsed_sec + elapsed_nsec * 1e-9
-
-            pt = JointTrajectoryPoint()
-            pt.positions = list(msg.position)
-            pt.velocities = list(msg.velocity)
-            pt.time_from_start = elapsed
-
-            raw_times.append(t_float)
-            raw_positions.append(pt.positions)
-            raw_vels.append(pt.velocities)
-            points.append(pt)
+        # Get the recorded init trajectory
+        points, raw_times, raw_positions, raw_vels, joint_names = self.extract_trajectory_from_bag(init_bag_path)
 
         # add a move to home trajectory
         q_goal = FRANKA_HOME
@@ -114,6 +76,15 @@ class TrajectoryReplayer(Node):
             raw_positions.append(pt.positions)
             raw_vels.append(pt.velocities)
             points.append(pt)
+
+        # add the recorded trajectory
+        t_offset = raw_times[-1] + dt # slow down by 1 sec?
+        points_r, raw_times_r, raw_positions_r, raw_vels_r, joint_names_r = self.extract_trajectory_from_bag(bag_path, t_offset_s=t_offset)
+        assert joint_names == joint_names_r, f"Expected both joint names of the bags to match: {joint_names} and {joint_names_r}"
+        points += points_r
+        raw_times += raw_times_r
+        raw_positions += raw_positions_r
+        raw_vels += raw_vels_r
 
         # Filter invalid points (e.g., duplicate timestamps or incorrect lengths)
         filtered = []
@@ -164,6 +135,55 @@ class TrajectoryReplayer(Node):
                     ]
 
         return joint_names, points
+    
+    def extract_trajectory_from_bag(self,bag_path: str, t_offset_s : float = 0.0):
+        """Extracts the trajectory points, velocities and times from a bag file."""
+        reader = SequentialReader()
+        reader.open(StorageOptions(uri=bag_path, storage_id='sqlite3'), ConverterOptions('', ''))
+
+        base_stamp = None
+        joint_names = []
+        raw_times, raw_positions, raw_vels = [], [], []
+        points = []
+        frac, non_frac = math.modf(t_offset_s)
+        t_offset_sec = int(non_frac)
+        t_offset_nanosec = int(frac * 1e9)
+
+        while reader.has_next():
+            topic, data, _ = reader.read_next()
+            if topic != JOINT_STATES_TOPIC:
+                continue
+
+            msg = deserialize_message(data, JointState)
+
+            if not joint_names:
+                joint_names = list(msg.name)
+
+            stamp = msg.header.stamp
+            if base_stamp is None:
+                base_stamp = stamp
+                elapsed_sec, elapsed_nsec = t_offset_sec, t_offset_nanosec
+            else:
+                elapsed_sec = stamp.sec - base_stamp.sec + t_offset_sec
+                elapsed_nsec = stamp.nanosec - base_stamp.nanosec + t_offset_nanosec
+                if elapsed_nsec < 0:
+                    elapsed_sec -= 1
+                    elapsed_nsec += 1_000_000_000
+
+            elapsed = Duration(sec=elapsed_sec, nanosec=elapsed_nsec)
+            t_float = elapsed_sec + elapsed_nsec * 1e-9
+
+            pt = JointTrajectoryPoint()
+            pt.positions = list(msg.position)
+            pt.velocities = list(msg.velocity)
+            pt.time_from_start = elapsed
+
+            raw_times.append(t_float)
+            raw_positions.append(pt.positions)
+            raw_vels.append(pt.velocities)
+            points.append(pt)
+        
+        return points, raw_times, raw_positions, raw_vels, joint_names
 
     def send_goal(self, joint_names, points):
         """Send the trajectory to the action server."""
@@ -204,5 +224,3 @@ def main(args=None):
     rclpy.spin(node)
     node.destroy_node()
     # rclpy.shutdown()
-
-from builtin_interfaces.msg import Duration

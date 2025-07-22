@@ -18,14 +18,14 @@ import math
 import numpy as np
 
 
-BAG_PATH = 'src/trajectory_replayer/recording/recording' 
-INIT_BAG_PATH = 'src/trajectory_replayer/recording/recording' 
+BAG_PATH = 'src/trajectory_replayer/recording/short_trajectory' 
+INIT_BAG_PATH = '' # 'src/trajectory_replayer/recording/init_trajectory' 
 JOINT_STATES_TOPIC = '/franka3/franka_robot_state_broadcaster/measured_joint_states'
 ACTION_TOPIC = '/fr3_arm_controller/follow_joint_trajectory'
 ALPHA_FILTER = 0.05  # Smoothing factor for exponential smoothing
 FRANKA_HOME = [0, -math.pi/4, 0, -3/4 * math.pi, 0, math.pi/2, math.pi/4]
 DT_HOME_CONTROLLER = 0.001
-SPEED_FACTOR_HOME_PATH = 0.25
+SPEED_FACTOR_HOME_PATH = 0.2
 
 
 class TrajectoryReplayer(Node):
@@ -52,12 +52,20 @@ class TrajectoryReplayer(Node):
     def load_trajectory(self, bag_path: str, init_bag_path: str = None):
         """Read JointState messages from a ros2 bag and convert to trajectory points."""
         # Get the recorded init trajectory
-        points, raw_times, raw_positions, raw_vels, joint_names = self.extract_trajectory_from_bag(init_bag_path)
+        if init_bag_path is None or init_bag_path == '':
+            points, raw_times, raw_positions, raw_vels, joint_names = [], [], [], [], []
+        else:
+            points, raw_times, raw_positions, raw_vels, joint_names = self.extract_trajectory_from_bag(init_bag_path)
 
         # add a move to home trajectory
+        if init_bag_path is None or init_bag_path == '':
+            q_start = FRANKA_HOME
+            t_start = Duration(sec=0, nanosec=0)
+        else: 
+            q_start = points[-1].positions
+            t_start = points[-1].time_from_start
+
         q_goal = FRANKA_HOME
-        q_start = points[-1].positions
-        t_start = points[-1].time_from_start
         dt = DT_HOME_CONTROLLER
         motion_generator = MotionGenerator(speed_factor=SPEED_FACTOR_HOME_PATH, q_start=q_start, q_goal=q_goal)
         pos_h, vel_h, acc_h = motion_generator.get_desired_joint_positions(dt=dt)
@@ -82,9 +90,12 @@ class TrajectoryReplayer(Node):
             points.append(pt)
 
         # add the recorded trajectory
-        t_offset = raw_times[-1] + dt # slow down by 1 sec?
+        t_offset = raw_times[-1] + 10 * dt
         points_r, raw_times_r, raw_positions_r, raw_vels_r, joint_names_r = self.extract_trajectory_from_bag(bag_path, t_offset_s=t_offset)
-        assert joint_names == joint_names_r, f"Expected both joint names of the bags to match: {joint_names} and {joint_names_r}"
+        if len(joint_names) == 0: 
+            joint_names = joint_names_r
+        else:
+            assert joint_names == joint_names_r, f"Expected both joint names of the bags to match: {joint_names} and {joint_names_r}"
         points += points_r
         raw_times += raw_times_r
         raw_positions += raw_positions_r

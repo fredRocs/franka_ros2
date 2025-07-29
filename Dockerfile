@@ -66,6 +66,7 @@ RUN sudo apt-get update \
         ros-humble-moveit-simple-controller-manager \
         ros-humble-rviz2 \
         ros-humble-xacro \
+        ros-humble-rmw-cyclonedds-cpp \
     && sudo apt-get clean \
     && sudo rm -rf /var/lib/apt/lists/*
 

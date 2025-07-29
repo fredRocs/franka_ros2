@@ -2,7 +2,7 @@
 ros2 launch franka_bringup example.launch.py controller_name:=move_to_start_example_controller
 
 2. Start the recording
-ros2 launch trajectory_replayer record_trajectory.launch.py 
+ros2 launch trajectory_replayer record_trajectory.launch.py bag_name:=trajectory_name
 
 3. Replay the trajectory 
 ros2 launch trajectory_replayer play_trajectory.launch.py 
